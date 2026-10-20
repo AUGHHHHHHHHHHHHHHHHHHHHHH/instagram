@@ -1,0 +1,24 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "macmate"
+version = "0.1.0"
+description = "Easy AI text-to-speech voiceovers and auto-captioned reels for Instagram videos"
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = [
+    "edge-tts>=7.0",
+    "gTTS>=2.5",
+]
+
+[project.scripts]
+macmate = "macmate.cli:main"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+packages = ["macmate"]
+
+[tool.setuptools.package-data]
+macmate = ["ui.html"]

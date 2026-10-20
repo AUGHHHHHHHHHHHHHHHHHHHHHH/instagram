@@ -1,0 +1,363 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Macmate</title>
+<link rel="icon" href="/favicon.ico">
+<style>
+  :root {
+    --bg: #0f1115; --card: #171a21; --line: #262b36; --text: #e8eaf0; --muted: #8b93a7;
+    --accent: #ff4d8d; --accent2: #ffb84d; --ok: #3ddc84; --err: #ff6b6b; --radius: 14px;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, sans-serif; }
+  .wrap { max-width: 760px; margin: 0 auto; padding: 28px 16px 80px; }
+  header { display: flex; align-items: baseline; gap: 14px; margin-bottom: 18px; }
+  header h1 { margin: 0; font-size: 28px; letter-spacing: -0.5px; }
+  header h1 span { background: linear-gradient(90deg, var(--accent), var(--accent2)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  header p { margin: 0; color: var(--muted); }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 20px; margin-bottom: 16px; }
+  .card h2 { margin: 0 0 12px; font-size: 15px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); }
+  .card h2 b { color: var(--accent); margin-right: 6px; }
+  textarea { width: 100%; min-height: 150px; resize: vertical; background: #0c0e12; color: var(--text); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; font: inherit; font-size: 16px; }
+  textarea:focus, select:focus, input:focus { outline: 2px solid var(--accent); outline-offset: 0; border-color: transparent; }
+  .row { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+  .row > * { flex: 1 1 160px; }
+  .row.tight > * { flex: 0 0 auto; }
+  label.field { display: block; font-size: 13px; color: var(--muted); }
+  label.field > * { display: block; margin-top: 4px; width: 100%; }
+  select, input[type=text], input[type=number] { background: #0c0e12; color: var(--text); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; font: inherit; }
+  input[type=range] { accent-color: var(--accent); width: 100%; }
+  input[type=color] { width: 100%; height: 40px; border: 1px solid var(--line); border-radius: 10px; background: #0c0e12; padding: 3px; }
+  .hint { color: var(--muted); font-size: 13px; }
+  button { font: inherit; border: 0; border-radius: 10px; padding: 11px 18px; cursor: pointer; color: #fff; background: #2a3040; transition: transform .05s, filter .15s; }
+  button:hover { filter: brightness(1.1); }
+  button:active { transform: translateY(1px); }
+  button.primary { background: linear-gradient(90deg, var(--accent), #ff7a59); font-weight: 600; font-size: 16px; padding: 13px 22px; }
+  button:disabled { opacity: .5; cursor: not-allowed; filter: none; }
+  .actions { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: 14px; }
+  .toggle { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; cursor: pointer; user-select: none; }
+  .toggle input { accent-color: var(--accent); width: 18px; height: 18px; }
+  .result { margin-top: 16px; padding-top: 16px; border-top: 1px dashed var(--line); display: none; }
+  .result.show { display: block; }
+  audio { width: 100%; margin: 8px 0; }
+  video { width: 100%; max-height: 560px; background: #000; border-radius: 10px; display: block; margin: 8px auto; }
+  .links a { color: #fff; background: #2a3040; padding: 8px 12px; border-radius: 8px; text-decoration: none; font-size: 14px; display: inline-block; margin: 4px 6px 0 0; }
+  .links a:hover { filter: brightness(1.15); }
+  .status { margin-top: 12px; font-size: 14px; color: var(--muted); min-height: 20px; }
+  .status.err { color: var(--err); white-space: pre-wrap; }
+  .status.ok { color: var(--ok); }
+  .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid var(--muted); border-top-color: var(--accent); border-radius: 50%; animation: spin .8s linear infinite; vertical-align: -2px; margin-right: 6px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .drop { border: 2px dashed var(--line); border-radius: 10px; padding: 16px; text-align: center; color: var(--muted); cursor: pointer; }
+  .drop.has { border-color: var(--ok); color: var(--text); }
+  .drop.over { border-color: var(--accent); background: #1d2130; }
+  .drop input { display: none; }
+  details { margin-top: 14px; }
+  summary { cursor: pointer; color: var(--muted); font-size: 14px; }
+  details > .row { margin-top: 10px; }
+  .banner { background: #2b1d10; border: 1px solid #5a3b17; color: #ffc98a; padding: 10px 14px; border-radius: 10px; font-size: 14px; margin-bottom: 14px; display: none; }
+  .banner.show { display: block; }
+  .pill { font-size: 12px; background: #2a3040; color: var(--muted); padding: 2px 8px; border-radius: 99px; margin-left: 8px; }
+  code { background: #0c0e12; padding: 1px 6px; border-radius: 6px; font-size: 13px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1><span>Macmate</span></h1>
+    <p>Type a script, pick a voice, get a voiceover or a captioned reel.</p>
+  </header>
+
+  <div class="banner" id="ffmpegBanner">
+    <b>Heads up:</b> ffmpeg was not found, so "Make a reel" is disabled. Voiceovers still work.
+    Install it with <code>brew install ffmpeg</code> and restart Macmate.
+  </div>
+
+  <!-- 1. Script -->
+  <section class="card">
+    <h2><b>1</b> Script</h2>
+    <textarea id="text" placeholder="Paste or type what the voice should say.&#10;&#10;Tip: short sentences sound best. Use periods and commas for pauses."></textarea>
+    <div class="status" id="textMeta">0 words</div>
+  </section>
+
+  <!-- 2. Voice -->
+  <section class="card">
+    <h2><b>2</b> Voice</h2>
+    <div class="row">
+      <label class="field">Voice
+        <select id="voice"></select>
+      </label>
+      <label class="field">Speed <span id="speedVal">1.0x</span>
+        <input type="range" id="speed" min="0.7" max="1.5" step="0.05" value="1">
+      </label>
+    </div>
+    <details>
+      <summary>Advanced: engine, pitch, every voice</summary>
+      <div class="row">
+        <label class="field">Engine
+          <select id="engine">
+            <option value="auto">Auto (best available)</option>
+            <option value="edge">AI neural voices (needs internet)</option>
+            <option value="gtts">Google Translate voice (needs internet)</option>
+            <option value="say" id="sayOpt">Mac built-in voice (works offline)</option>
+          </select>
+        </label>
+        <label class="field">Pitch <span id="pitchVal">0 Hz</span>
+          <input type="range" id="pitch" min="-30" max="30" step="5" value="0">
+        </label>
+        <label class="toggle" style="align-self:end"><input type="checkbox" id="showAll"> Show all 300+ voices</label>
+      </div>
+    </details>
+    <div class="actions">
+      <button id="previewBtn" type="button">▶ Preview voice</button>
+      <button id="speakBtn" class="primary" type="button">Generate voice</button>
+      <span class="status" id="speakStatus"></span>
+    </div>
+    <div class="result" id="speakResult">
+      <audio id="player" controls></audio>
+      <div class="links">
+        <a id="dlAudio" download>⬇ Download MP3</a>
+        <a id="dlSrt" download>⬇ Download captions (.srt)</a>
+      </div>
+      <div class="status" id="speakInfo"></div>
+    </div>
+  </section>
+
+  <!-- 3. Reel -->
+  <section class="card" id="reelCard">
+    <h2><b>3</b> Make a reel <span class="pill">1080 × 1920 · ready for Instagram</span></h2>
+    <div class="row">
+      <label class="field">Background
+        <div class="drop" id="bgDrop">
+          <input type="file" id="bg" accept="image/*,video/*">
+          <span id="bgLabel">Drop a photo or video here, or click to choose<br><small>Leave empty for a solid color</small></span>
+        </div>
+      </label>
+      <label class="field">Solid color (if no background)
+        <input type="color" id="bgColor" value="#111111">
+      </label>
+    </div>
+    <div class="row" style="margin-top:12px">
+      <label class="field">Background music (optional)
+        <div class="drop" id="musicDrop">
+          <input type="file" id="music" accept="audio/*,video/*">
+          <span id="musicLabel">Drop a music file, or click to choose</span>
+        </div>
+      </label>
+      <label class="field">Music volume <span id="musicVal">12%</span>
+        <input type="range" id="musicVolume" min="0" max="0.5" step="0.01" value="0.12">
+      </label>
+    </div>
+
+    <details open>
+      <summary>Captions</summary>
+      <div class="row">
+        <label class="field">Words per caption
+          <select id="words">
+            <option value="1">1 (one word at a time)</option>
+            <option value="2">2</option>
+            <option value="3" selected>3</option>
+            <option value="4">4</option>
+            <option value="5">5</option>
+            <option value="0">Whole sentences</option>
+          </select>
+        </label>
+        <label class="field">Size <span id="sizeVal">72</span>
+          <input type="range" id="fontSize" min="44" max="110" step="2" value="72">
+        </label>
+        <label class="field">Position
+          <select id="position">
+            <option value="bottom" selected>Lower third</option>
+            <option value="center">Center</option>
+            <option value="top">Top</option>
+          </select>
+        </label>
+      </div>
+      <div class="row">
+        <label class="field">Text color <input type="color" id="color" value="#ffffff"></label>
+        <label class="field">Highlight color <input type="color" id="highlight" value="#ffdd00"></label>
+        <label class="field">Font <input type="text" id="font" value="Arial" placeholder="Arial"></label>
+      </div>
+      <div class="row tight" style="margin-top:10px">
+        <label class="toggle"><input type="checkbox" id="captions" checked> Burn captions into video</label>
+        <label class="toggle"><input type="checkbox" id="caps"> UPPERCASE</label>
+        <label class="toggle"><input type="checkbox" id="zoom" checked> Slow zoom on photos</label>
+      </div>
+    </details>
+
+    <div class="actions">
+      <button id="reelBtn" class="primary" type="button">Render reel</button>
+      <span class="status" id="reelStatus"></span>
+    </div>
+    <div class="result" id="reelResult">
+      <video id="video" controls playsinline></video>
+      <div class="links">
+        <a id="dlVideo" download>⬇ Download MP4</a>
+        <a id="dlSrt2" download>⬇ Captions (.srt)</a>
+        <a id="dlAudio2" download>⬇ Voice (MP3)</a>
+      </div>
+      <div class="status" id="reelInfo"></div>
+    </div>
+  </section>
+
+  <p class="hint">Files are saved in <code id="outDir">output/</code>. Voices are generated by Microsoft Edge neural voices (free), with Google and the Mac's own voices as fallbacks.</p>
+</div>
+
+<script>
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const state = { voices: null, lastAudio: null, lastSig: null, previewAudio: null };
+
+  // ---------- helpers
+  const fmt = (s) => s >= 60 ? `${Math.floor(s/60)}:${String(Math.round(s%60)).padStart(2,'0')}` : `${s.toFixed(1)}s`;
+  const setStatus = (el, msg, cls = '') => { el.className = 'status ' + cls; el.innerHTML = msg; };
+  const busy = (el, msg) => setStatus(el, `<span class="spinner"></span>${msg}`);
+  const sig = () => JSON.stringify([$('text').value.trim(), $('voice').value, $('speed').value, $('engine').value, $('pitch').value]);
+  async function api(url, opts) {
+    const res = await fetch(url, opts);
+    let data = {};
+    try { data = await res.json(); } catch (e) { data = { error: `Server error (${res.status})` }; }
+    if (!res.ok || data.error) throw new Error(data.error || `Request failed (${res.status})`);
+    return data;
+  }
+  const basename = (p) => p.split('/').pop();
+
+  // ---------- script meta
+  function updateMeta() {
+    const words = $('text').value.trim().split(/\s+/).filter(Boolean).length;
+    const secs = words / (2.7 * parseFloat($('speed').value));
+    $('textMeta').textContent = words ? `${words} words · about ${fmt(secs)} of audio` : '0 words';
+  }
+  $('text').addEventListener('input', updateMeta);
+  $('speed').addEventListener('input', () => { $('speedVal').textContent = parseFloat($('speed').value).toFixed(2).replace(/0$/, '') + 'x'; updateMeta(); });
+  $('pitch').addEventListener('input', () => $('pitchVal').textContent = `${$('pitch').value} Hz`);
+  $('musicVolume').addEventListener('input', () => $('musicVal').textContent = Math.round($('musicVolume').value * 100) + '%');
+  $('fontSize').addEventListener('input', () => $('sizeVal').textContent = $('fontSize').value);
+
+  // ---------- voices
+  function fillVoices() {
+    const sel = $('voice');
+    const current = sel.value;
+    sel.innerHTML = '';
+    const groups = new Map();
+    const add = (lang, label, value) => {
+      if (!groups.has(lang)) { const g = document.createElement('optgroup'); g.label = lang; groups.set(lang, g); sel.appendChild(g); }
+      const o = document.createElement('option'); o.value = value; o.textContent = label; groups.get(lang).appendChild(o);
+    };
+    const v = state.voices;
+    if (!v) return;
+    if ($('showAll').checked && v.all && v.all.length) {
+      v.all.forEach(x => add(x.language, `${x.name.split('-').slice(2).join('-').replace(/Neural$/, '')} (${x.gender || '?'})${x.personalities ? ' · ' + x.personalities : ''}`, x.name));
+    } else {
+      v.aliases.forEach(x => add(x.language, `${x.name[0].toUpperCase() + x.name.slice(1)} (${x.gender}) · ${x.note}`, x.name));
+    }
+    sel.value = current && [...sel.options].some(o => o.value === current) ? current : v.default;
+  }
+  $('showAll').addEventListener('change', fillVoices);
+
+  async function init() {
+    try {
+      const st = await api('/api/status');
+      $('outDir').textContent = st.output_dir;
+      if (!st.mac) $('sayOpt').disabled = true;
+      if (!st.ffmpeg) { $('ffmpegBanner').classList.add('show'); $('reelBtn').disabled = true; }
+    } catch (e) { /* ignore */ }
+    try {
+      state.voices = await api('/api/voices');
+      fillVoices();
+    } catch (e) {
+      setStatus($('speakStatus'), 'Could not load voices: ' + e.message, 'err');
+    }
+  }
+
+  // ---------- preview
+  $('previewBtn').addEventListener('click', async () => {
+    const btn = $('previewBtn');
+    btn.disabled = true; busy($('speakStatus'), 'Loading preview…');
+    try {
+      const data = await api('/api/preview?voice=' + encodeURIComponent($('voice').value));
+      if (state.previewAudio) state.previewAudio.pause();
+      state.previewAudio = new Audio(data.url);
+      state.previewAudio.playbackRate = parseFloat($('speed').value);
+      await state.previewAudio.play();
+      setStatus($('speakStatus'), '');
+    } catch (e) { setStatus($('speakStatus'), e.message, 'err'); }
+    btn.disabled = false;
+  });
+
+  // ---------- generate voice
+  $('speakBtn').addEventListener('click', async () => {
+    const text = $('text').value.trim();
+    if (!text) { setStatus($('speakStatus'), 'Type or paste a script first.', 'err'); $('text').focus(); return; }
+    const btn = $('speakBtn'); btn.disabled = true;
+    busy($('speakStatus'), 'Generating voice…');
+    try {
+      const data = await api('/api/speak', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text, voice: $('voice').value, speed: $('speed').value, engine: $('engine').value,
+                               pitch: $('pitch').value, words: $('words').value, caps: $('caps').checked }),
+      });
+      state.lastAudio = data.audio_name; state.lastSig = sig();
+      $('player').src = data.audio_url; $('player').play().catch(() => {});
+      $('dlAudio').href = data.audio_url; $('dlAudio').download = basename(data.audio_url);
+      $('dlSrt').href = data.srt_url; $('dlSrt').download = basename(data.srt_url);
+      $('speakResult').classList.add('show');
+      const notes = (data.notes || []).join(' ');
+      $('speakInfo').textContent = `${data.voice} · ${data.engine} engine · ${fmt(data.duration)}` + (data.estimated_timings ? ' · caption timings estimated' : '') + (notes ? ' · ' + notes : '');
+      setStatus($('speakStatus'), 'Done', 'ok');
+    } catch (e) { setStatus($('speakStatus'), e.message, 'err'); }
+    btn.disabled = false;
+  });
+
+  // ---------- drop zones
+  function dropZone(zoneId, inputId, labelId, emptyHtml) {
+    const zone = $(zoneId), input = $(inputId), label = $(labelId);
+    const show = () => { const f = input.files[0]; zone.classList.toggle('has', !!f); label.innerHTML = f ? `✓ ${f.name} <small>(click to change)</small>` : emptyHtml; };
+    zone.addEventListener('click', () => input.click());
+    input.addEventListener('change', show);
+    ['dragenter', 'dragover'].forEach(ev => zone.addEventListener(ev, e => { e.preventDefault(); zone.classList.add('over'); }));
+    ['dragleave', 'drop'].forEach(ev => zone.addEventListener(ev, e => { e.preventDefault(); zone.classList.remove('over'); }));
+    zone.addEventListener('drop', e => { if (e.dataTransfer.files.length) { input.files = e.dataTransfer.files; show(); } });
+  }
+  dropZone('bgDrop', 'bg', 'bgLabel', 'Drop a photo or video here, or click to choose<br><small>Leave empty for a solid color</small>');
+  dropZone('musicDrop', 'music', 'musicLabel', 'Drop a music file, or click to choose');
+
+  // ---------- render reel
+  $('reelBtn').addEventListener('click', async () => {
+    const text = $('text').value.trim();
+    if (!text) { setStatus($('reelStatus'), 'Type or paste a script first.', 'err'); $('text').focus(); return; }
+    const btn = $('reelBtn'); btn.disabled = true;
+    const fd = new FormData();
+    fd.append('text', text);
+    ['voice', 'speed', 'engine', 'pitch', 'words', 'position', 'font'].forEach(k => fd.append(k, $(k).value));
+    fd.append('font_size', $('fontSize').value);
+    fd.append('color', $('color').value); fd.append('highlight', $('highlight').value);
+    fd.append('bg_color', $('bgColor').value); fd.append('music_volume', $('musicVolume').value);
+    fd.append('caps', $('caps').checked ? '1' : '0'); fd.append('captions', $('captions').checked ? '1' : '0');
+    fd.append('zoom', $('zoom').checked ? '1' : '0');
+    if (state.lastAudio && state.lastSig === sig()) fd.append('audio_name', state.lastAudio);
+    if ($('bg').files[0]) fd.append('bg', $('bg').files[0]);
+    if ($('music').files[0]) fd.append('music', $('music').files[0]);
+    busy($('reelStatus'), state.lastAudio && state.lastSig === sig() ? 'Rendering video…' : 'Generating voice and rendering video…');
+    try {
+      const data = await api('/api/reel', { method: 'POST', body: fd });
+      state.lastAudio = data.audio_name; state.lastSig = sig();
+      $('video').src = data.video_url;
+      $('dlVideo').href = data.video_url; $('dlVideo').download = basename(data.video_url);
+      $('dlSrt2').href = data.srt_url; $('dlSrt2').download = basename(data.srt_url);
+      $('dlAudio2').href = data.audio_url; $('dlAudio2').download = basename(data.audio_url);
+      $('reelResult').classList.add('show');
+      $('reelInfo').textContent = `Saved to ${data.video_path} · ${fmt(data.duration)} · ${data.voice}`;
+      setStatus($('reelStatus'), 'Done', 'ok');
+      $('video').scrollIntoView({ behavior: 'smooth', block: 'center' });
+    } catch (e) { setStatus($('reelStatus'), e.message, 'err'); }
+    btn.disabled = false;
+  });
+
+  init();
+})();
+</script>
+</body>
+</html>

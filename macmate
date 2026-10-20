@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+# Macmate launcher. The first run creates a private Python environment (one time, about 30 seconds).
+set -e
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+VENV="$HERE/.venv"
+
+if ! command -v python3 >/dev/null 2>&1; then
+  echo "python3 was not found. On a Mac, run:  xcode-select --install   (or install Python from python.org)" >&2
+  exit 1
+fi
+
+if [ ! -x "$VENV/bin/python" ] || [ ! -f "$VENV/.installed" ]; then
+  echo "First run: setting up Macmate (one time, about 30 seconds)..." >&2
+  python3 -m venv "$VENV"
+  "$VENV/bin/python" -m pip install --quiet --upgrade pip
+  "$VENV/bin/python" -m pip install --quiet -e "$HERE"
+  touch "$VENV/.installed"
+  echo "Setup done." >&2
+fi
+
+exec "$VENV/bin/python" -m macmate "$@"
