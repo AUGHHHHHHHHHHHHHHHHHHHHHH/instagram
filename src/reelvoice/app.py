@@ -28,8 +28,8 @@ def _setup_logging() -> None:
 def run_desktop() -> int:
     os.environ["REELVOICE_APP"] = "1"
     _setup_logging()
-    from . import __version__, util
-    from .server import out_dir, start_server
+    from reelvoice import __version__, util          # absolute imports: PyInstaller runs this file as __main__
+    from reelvoice.server import out_dir, start_server
 
     print(f"Reelvoice {__version__} starting (ffmpeg: {util.ffmpeg()})")
     httpd = start_server(port=0)
@@ -63,7 +63,7 @@ def run_desktop() -> int:
 def main() -> int:
     args = [a for a in sys.argv[1:] if not a.startswith("-psn_")]   # Finder adds -psn_... on older macOS
     if args:
-        from .cli import main as cli_main
+        from reelvoice.cli import main as cli_main
         return cli_main(args)
     return run_desktop()
 
