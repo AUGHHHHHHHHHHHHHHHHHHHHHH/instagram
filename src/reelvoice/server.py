@@ -78,11 +78,11 @@ def voices_payload() -> dict:
 
 
 class Handler(BaseHTTPRequestHandler):
-    server_version = "Macmate/" + __version__
+    server_version = "Reelvoice/" + __version__
     protocol_version = "HTTP/1.1"
 
     def log_message(self, fmt, *args):  # quiet unless debugging
-        if os.environ.get("MACMATE_DEBUG"):
+        if os.environ.get("REELVOICE_DEBUG"):
             super().log_message(fmt, *args)
 
     # ------------------------------------------------------------ responses
@@ -180,7 +180,7 @@ class Handler(BaseHTTPRequestHandler):
         if not util.ffmpeg():
             raise EngineError(f"ffmpeg is needed to make videos. {util.ffmpeg_hint()}")
 
-        tmpdir = Path(tempfile.mkdtemp(prefix="macmate-upload-"))
+        tmpdir = Path(tempfile.mkdtemp(prefix="reelvoice-upload-"))
         notes: list = []
         try:
             bg = _save_upload(files.get("bg"), tmpdir)
@@ -296,15 +296,15 @@ def serve(port: int = 8765, open_browser: Optional[bool] = None) -> int:
     try:
         httpd = ThreadingHTTPServer(("127.0.0.1", port), Handler)
     except OSError as exc:
-        util.log(f"Could not start on port {port} ({exc}). Try another port:  macmate --ui {port + 1}")
+        util.log(f"Could not start on port {port} ({exc}). Try another port:  reelvoice --ui {port + 1}")
         return 1
     httpd.daemon_threads = True
     url = f"http://127.0.0.1:{port}"
-    print(f"Macmate is running at {url}")
+    print(f"Reelvoice is running at {url}")
     print(f"Files are saved in {OUT_DIR}")
     print("Press Ctrl+C to stop.")
     if open_browser is None:
-        open_browser = not os.environ.get("MACMATE_NO_BROWSER")
+        open_browser = not os.environ.get("REELVOICE_NO_BROWSER")
     if open_browser:
         threading.Timer(0.5, lambda: webbrowser.open(url)).start()
     try:

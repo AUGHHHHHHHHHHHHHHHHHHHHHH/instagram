@@ -62,7 +62,7 @@ def timestamp() -> str:
 
 
 def default_out_dir() -> Path:
-    return Path(os.environ.get("MACMATE_OUTPUT", Path.cwd() / "output"))
+    return Path(os.environ.get("REELVOICE_OUTPUT", Path.cwd() / "output"))
 
 
 def unique_path(path: Path) -> Path:

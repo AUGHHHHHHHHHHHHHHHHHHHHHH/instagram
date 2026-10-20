@@ -83,7 +83,7 @@ def render_reel(
     if music:
         cmd += ["-stream_loop", "-1", "-i", str(music)]
 
-    tmpdir = Path(tempfile.mkdtemp(prefix="macmate-"))
+    tmpdir = Path(tempfile.mkdtemp(prefix="reelvoice-"))
     try:
         # --- video chain
         v = "[0:v]"
@@ -120,7 +120,7 @@ def render_reel(
             "-c:a", "aac", "-b:a", "192k", "-ar", "44100",
             "-movflags", "+faststart", str(out),
         ]
-        log(f"[macmate] Rendering {width}x{height} reel ({util.human_time(total)})... this can take a little while")
+        log(f"[reelvoice] Rendering {width}x{height} reel ({util.human_time(total)})... this can take a little while")
         res = subprocess.run(cmd, capture_output=True, text=True)
         if res.returncode != 0:
             err = res.stderr.strip() or "unknown ffmpeg error"

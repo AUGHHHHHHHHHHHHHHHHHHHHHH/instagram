@@ -1,11 +1,11 @@
 """Command line interface.
 
-    macmate "Your script here"                   -> output/your-script-here-<time>.mp3 + .srt
-    macmate script.txt -v brian --speed 1.1
-    macmate "text" --video clip.mp4              -> 9:16 reel with voice + animated captions
-    macmate "text" --image photo.jpg --music beat.mp3
-    macmate --voices                             -> list voices
-    macmate --ui                                 -> open the local web app
+    reelvoice "Your script here"                   -> output/your-script-here-<time>.mp3 + .srt
+    reelvoice script.txt -v brian --speed 1.1
+    reelvoice "text" --video clip.mp4              -> 9:16 reel with voice + animated captions
+    reelvoice "text" --image photo.jpg --music beat.mp3
+    reelvoice --voices                             -> list voices
+    reelvoice --ui                                 -> open the local web app
 """
 from __future__ import annotations
 
@@ -23,15 +23,15 @@ from .voices import ALIASES, DEFAULT_VOICE, language_name, list_all_voices
 
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
-        prog="macmate",
+        prog="reelvoice",
         description="Easy AI text-to-speech voiceovers and auto-captioned reels for Instagram.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""examples:
-  macmate "Three tips to grow faster on Instagram."
-  macmate script.txt -v andrew --speed 1.1 -o voice.mp3
-  macmate script.txt --video broll.mp4 -o reel.mp4
-  macmate "text" --image photo.jpg --music beat.mp3 --caps --highlight lime
-  macmate --voices          macmate --voices es          macmate --ui
+  reelvoice "Three tips to grow faster on Instagram."
+  reelvoice script.txt -v andrew --speed 1.1 -o voice.mp3
+  reelvoice script.txt --video broll.mp4 -o reel.mp4
+  reelvoice "text" --image photo.jpg --music beat.mp3 --caps --highlight lime
+  reelvoice --voices          reelvoice --voices es          reelvoice --ui
 """)
     p.add_argument("text", nargs="?", help="the script to speak, a path to a .txt file, or - for stdin")
     p.add_argument("-o", "--out", help="output file (.mp3/.wav/.m4a for audio, .mp4 for a reel). Default: output/")
@@ -67,7 +67,7 @@ def build_parser() -> argparse.ArgumentParser:
     other.add_argument("--all-voices", action="store_true", help="list every available AI voice (300+)")
     other.add_argument("--ui", nargs="?", const=8765, type=int, metavar="PORT",
                        help="start the local web app (default port 8765) and open it in your browser")
-    other.add_argument("--version", action="version", version=f"macmate {__version__}")
+    other.add_argument("--version", action="version", version=f"reelvoice {__version__}")
     return p
 
 
@@ -104,7 +104,7 @@ def print_voices(lang: str, show_all: bool) -> None:
             continue
         star = " (default)" if info.alias == DEFAULT_VOICE else ""
         print(f"{info.alias:13} {info.gender:1}  {language_name(info.locale):22} {info.note}{star}")
-    print("\nUse with  -v NAME   e.g.  macmate \"Hello\" -v brian      (--all-voices shows 300+ more)")
+    print("\nUse with  -v NAME   e.g.  reelvoice \"Hello\" -v brian      (--all-voices shows 300+ more)")
 
 
 def main(argv=None) -> int:

@@ -137,7 +137,7 @@ def speak(
             errors.append(f"{name}: {exc}")
             if engine != "auto":
                 raise
-            log(f"[macmate] {name} did not work ({exc}). Trying the next engine...")
+            log(f"[reelvoice] {name} did not work ({exc}). Trying the next engine...")
     raise EngineError("No text-to-speech engine worked:\n  " + "\n  ".join(errors))
 
 
@@ -236,7 +236,7 @@ def _gtts(text: str, info: VoiceInfo, speed: float, pitch: int, out: Path, log) 
             tmp.unlink()
             tmp = sped
         else:
-            log("[macmate] speed needs ffmpeg; using normal speed for the gtts engine")
+            log("[reelvoice] speed needs ffmpeg; using normal speed for the gtts engine")
 
     audio = _finalize_format(tmp, out, log)
     duration = util.duration_of(audio) or _mp3_duration_guess(audio, 32)
@@ -247,7 +247,7 @@ def _gtts(text: str, info: VoiceInfo, speed: float, pitch: int, out: Path, log) 
 
 def _say(text: str, info: VoiceInfo, speed: float, pitch: int, out: Path, log) -> Speech:
     voice = mac_voice_for(info)
-    with tempfile.TemporaryDirectory(prefix="macmate-say-") as td:
+    with tempfile.TemporaryDirectory(prefix="reelvoice-say-") as td:
         txt = Path(td) / "script.txt"
         aiff = Path(td) / "voice.aiff"
         txt.write_text(text, encoding="utf-8")
@@ -271,7 +271,7 @@ def _say(text: str, info: VoiceInfo, speed: float, pitch: int, out: Path, log) -
             except Exception as exc:
                 raise EngineError(f"could not convert audio: {exc}") from exc
             if audio != out:
-                log(f"[macmate] ffmpeg not found, saved as .m4a instead: {audio}")
+                log(f"[reelvoice] ffmpeg not found, saved as .m4a instead: {audio}")
     duration = util.duration_of(audio) or _estimate_duration(text, speed)
     return Speech(audio, estimate_words(text, duration), duration, "say", voice or "system default", True)
 
@@ -306,7 +306,7 @@ def _finalize_format(src: Path, out: Path, log, keep_source: bool = False) -> Pa
         return out
     fallback = out.with_suffix(".mp3") if src.suffix.lower() == ".mp3" else out.with_suffix(src.suffix)
     src.replace(fallback)
-    log(f"[macmate] ffmpeg not found, so the audio was saved as {fallback.suffix}: {fallback}")
+    log(f"[reelvoice] ffmpeg not found, so the audio was saved as {fallback.suffix}: {fallback}")
     return fallback
 
 

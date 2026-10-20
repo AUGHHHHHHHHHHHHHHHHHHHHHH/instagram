@@ -135,7 +135,7 @@ def language_name(locale: str) -> str:
 
 # ---------------------------------------------------------------- full Edge voice list (cached)
 
-_CACHE = Path.home() / ".cache" / "macmate" / "voices.json"
+_CACHE = Path.home() / ".cache" / "reelvoice" / "voices.json"
 _CACHE_TTL = 7 * 24 * 3600
 
 
@@ -210,7 +210,7 @@ def resolve_voice(name: Optional[str]) -> VoiceInfo:
     for v in cached:
         if key in v["name"].lower():
             return VoiceInfo("", v["name"], v["gender"], v["locale"])
-    raise ValueError(f"Unknown voice '{raw}'. Run  macmate --voices  to see the options.")
+    raise ValueError(f"Unknown voice '{raw}'. Run  reelvoice --voices  to see the options.")
 
 
 # ---------------------------------------------------------------- macOS "say" voices
