@@ -31,10 +31,14 @@ if [ ! -x build/ffbin/ffmpeg ] || [ ! -x build/ffbin/ffprobe ]; then
 fi
 chmod +x build/ffbin/ffmpeg build/ffbin/ffprobe
 xattr -cr build/ffbin || true
-build/ffbin/ffmpeg -version | head -1
-build/ffbin/ffmpeg -hide_banner -filters | grep -q " ass " || { echo "bundled ffmpeg lacks the ass (captions) filter" >&2; exit 1; }
-build/ffbin/ffmpeg -hide_banner -filters | grep -q " afftfilt " || { echo "bundled ffmpeg lacks afftfilt (voice styles)" >&2; exit 1; }
-build/ffbin/ffprobe -version | head -1
+# (no pipes into early-exiting readers here: with pipefail a SIGPIPE would fail the build)
+build/ffbin/ffmpeg -version > build/ffmpeg-version.txt
+build/ffbin/ffprobe -version > build/ffprobe-version.txt
+sed -n 1p build/ffmpeg-version.txt build/ffprobe-version.txt
+build/ffbin/ffmpeg -hide_banner -filters > build/ffmpeg-filters.txt
+for f in " ass " " afftfilt " " apulsator " " loudnorm " " zoompan "; do
+  grep -q "$f" build/ffmpeg-filters.txt || { echo "bundled ffmpeg lacks the$f filter" >&2; exit 1; }
+done
 
 echo "==> App icon"
 rm -rf build/icon.iconset && mkdir -p build/icon.iconset
@@ -54,7 +58,7 @@ test -x "$BIN"
 
 echo "==> Smoke tests (the app binary doubles as the CLI)"
 "$BIN" --version
-"$BIN" --styles | head -3
+"$BIN" --styles
 "$BIN" "Smoke test for the packaged app. Captions should appear." -e say --style asmr --bg "#202020" --words 2 -o build/smoke.mp4
 test -s build/smoke.mp4
 echo "smoke reel: $(stat -f%z build/smoke.mp4) bytes"
