@@ -5,6 +5,7 @@ import re
 from dataclasses import dataclass, field
 from typing import List, Optional, Tuple
 
+from . import util
 from .engines import Word
 
 _COLORS = {
@@ -17,7 +18,7 @@ _COLORS = {
 
 @dataclass
 class CaptionStyle:
-    font: str = "Arial"
+    font: str = util.DEFAULT_FONT
     size: int = 72               # pixels at 1080x1920
     color: str = "white"         # base text color
     highlight: str = "yellow"    # the word being spoken

@@ -16,9 +16,10 @@ from typing import Optional
 
 from . import __version__, util
 from .captions import CaptionStyle, build_cues, to_ass, to_srt
-from .engines import AUDIO_EXTS, ENGINE_NAMES, EngineError, speak
+from .engines import AUDIO_EXTS, ENGINE_NAMES, STYLES, EngineError, elevenlabs_voices, speak
+from .settings import save_settings, settings_path
 from .video import render_reel
-from .voices import ALIASES, DEFAULT_VOICE, language_name, list_all_voices
+from .voices import ALIASES, DEFAULT_VOICE, OPENAI_VOICES, language_name, list_all_voices
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -31,22 +32,27 @@ def build_parser() -> argparse.ArgumentParser:
   reelvoice script.txt -v andrew --speed 1.1 -o voice.mp3
   reelvoice script.txt --video broll.mp4 -o reel.mp4
   reelvoice "text" --image photo.jpg --music beat.mp3 --caps --highlight lime
+  reelvoice "Hey sweetheart, time to relax." --style asmr
   reelvoice --voices          reelvoice --voices es          reelvoice --ui
+  reelvoice --set-key openai sk-...     then:  reelvoice "text" -e openai --style asmr
 """)
     p.add_argument("text", nargs="?", help="the script to speak, a path to a .txt file, or - for stdin")
     p.add_argument("-o", "--out", help="output file (.mp3/.wav/.m4a for audio, .mp4 for a reel). Default: output/")
-    p.add_argument("-v", "--voice", default=DEFAULT_VOICE, help=f"voice name (default: {DEFAULT_VOICE}). See --voices")
+    p.add_argument("-v", "--voice", default=None, help=f"voice name (default: {DEFAULT_VOICE}). See --voices")
+    p.add_argument("--style", choices=list(STYLES), default="normal",
+                   help="delivery style: normal, asmr (soft & soothing), calm, energetic, deep. See --styles")
     p.add_argument("-s", "--speed", type=float, default=1.0, help="speaking speed, 0.5 to 2.0 (default 1.0)")
     p.add_argument("--pitch", type=int, default=0, help="pitch shift in Hz for AI voices, e.g. -20 or 15")
     p.add_argument("-e", "--engine", choices=ENGINE_NAMES, default="auto",
-                   help="auto (default), edge = AI voices, gtts = Google, say = Mac offline")
+                   help="auto (default: free voices), edge, gtts, say = Mac offline, "
+                        "openai / elevenlabs = expressive voices that need an API key (see --set-key)")
     p.add_argument("--open", action="store_true", help="open the result when done")
 
     cap = p.add_argument_group("captions")
     cap.add_argument("--no-captions", action="store_true", help="skip writing the .srt / burned-in captions")
     cap.add_argument("--words", type=int, default=3, help="words per caption (default 3; 0 = whole sentences)")
     cap.add_argument("--caps", action="store_true", help="UPPERCASE captions")
-    cap.add_argument("--font", default="Arial", help="caption font name (default Arial)")
+    cap.add_argument("--font", default=util.DEFAULT_FONT, help=f"caption font name (default {util.DEFAULT_FONT})")
     cap.add_argument("--font-size", type=int, default=72, help="caption size in px on a 1080x1920 frame (default 72)")
     cap.add_argument("--color", default="white", help="caption text color (default white)")
     cap.add_argument("--highlight", default="yellow", help="color of the word being spoken (default yellow)")
@@ -65,6 +71,9 @@ def build_parser() -> argparse.ArgumentParser:
     other.add_argument("--voices", nargs="?", const="all", metavar="LANG",
                        help="list friendly voices, optionally for a language code (en, es, fr...)")
     other.add_argument("--all-voices", action="store_true", help="list every available AI voice (300+)")
+    other.add_argument("--styles", action="store_true", help="list the delivery styles")
+    other.add_argument("--set-key", nargs=2, metavar=("SERVICE", "KEY"),
+                       help="save an API key for openai or elevenlabs, e.g. --set-key openai sk-...")
     other.add_argument("--ui", nargs="?", const=8765, type=int, metavar="PORT",
                        help="start the local web app (default port 8765) and open it in your browser")
     other.add_argument("--version", action="version", version=f"reelvoice {__version__}")
@@ -111,8 +120,36 @@ def main(argv=None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
 
+    if args.set_key:
+        service, key = args.set_key[0].lower(), args.set_key[1]
+        if service not in ("openai", "elevenlabs"):
+            parser.error("--set-key SERVICE must be openai or elevenlabs")
+        save_settings({f"{service}_api_key": key})
+        print(f"Saved the {service} key to {settings_path()}")
+        return 0
+    if args.voices in ("openai", "elevenlabs"):
+        if args.voices == "openai":
+            for v in OPENAI_VOICES:
+                print(f"{v['name']:10} {v['gender']:1}  {v['note']}")
+            print("\nUse with  -e openai -v NAME")
+        else:
+            try:
+                for v in elevenlabs_voices():
+                    print(f"{v['name']:28} {v['gender'] or '?':1}  {v['category']:12} {v['note']}")
+                print("\nUse with  -e elevenlabs -v NAME   (or the voice id)")
+            except EngineError as exc:
+                util.log(f"Error: {exc}")
+                return 1
+        return 0
     if args.voices or args.all_voices:
         print_voices(args.voices or "all", args.all_voices)
+        return 0
+    if args.styles:
+        print(f"{'STYLE':11} {'NAME':26} WHAT IT DOES")
+        for st in STYLES.values():
+            hint = f"  (suggested voice: {st.voice})" if st.voice else ""
+            print(f"{st.name:11} {st.label:26} {st.description}{hint}")
+        print("\nUse with  --style NAME   e.g.  reelvoice \"Hey there\" --style asmr")
         return 0
     if args.ui is not None:
         from .server import serve
@@ -148,7 +185,8 @@ def main(argv=None) -> int:
         return 1
 
     try:
-        speech = speak(text, voice=args.voice, speed=args.speed, pitch=args.pitch, engine=args.engine, out=audio_out)
+        speech = speak(text, voice=args.voice, speed=args.speed, pitch=args.pitch, engine=args.engine,
+                       out=audio_out, style=args.style)
     except (EngineError, ValueError) as exc:
         util.log(f"Error: {exc}")
         return 1
@@ -161,7 +199,8 @@ def main(argv=None) -> int:
         srt_path = speech.audio.with_suffix(".srt")
         srt_path.write_text(to_srt(cues, args.caps), encoding="utf-8")
 
-    print(f"Voice:    {speech.voice}  ({speech.engine} engine, {util.human_time(speech.duration)})")
+    style_note = f", {speech.style} style" if speech.style != "normal" else ""
+    print(f"Voice:    {speech.voice}  ({speech.engine} engine{style_note}, {util.human_time(speech.duration)})")
     print(f"Audio:    {speech.audio}")
     if srt_path:
         note = "  (timings estimated)" if speech.estimated_timings else ""

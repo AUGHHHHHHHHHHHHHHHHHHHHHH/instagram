@@ -1,4 +1,4 @@
-"""A tiny local web app (standard library only) so you can make voiceovers and reels in the browser."""
+"""The local HTTP backend behind the web page: used by the desktop app window and by `reelvoice --ui`."""
 from __future__ import annotations
 
 import json
@@ -18,17 +18,22 @@ from urllib.parse import parse_qs, unquote, urlparse
 
 from . import __version__, util
 from .captions import CaptionStyle, build_cues, to_ass, to_srt
-from .engines import EngineError, Speech, speak
+from .engines import ENGINE_LABELS, STYLES, EngineError, Speech, elevenlabs_voices, resolve_style, speak
+from .settings import api_key, save_settings, settings_path
 from .video import render_reel
-from .voices import ALIASES, DEFAULT_VOICE, list_all_voices, resolve_voice
+from .voices import ALIASES, DEFAULT_VOICE, OPENAI_VOICES, list_all_voices, resolve_voice
 
 UI_PATH = Path(__file__).with_name("ui.html")
-OUT_DIR = util.default_out_dir()
-PREVIEW_TEXT = "Hey! This is how I sound. Pick me for your next reel."
+_preview_lock = threading.Lock()
 _FAVICON = (b'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="14" '
             b'fill="#ff4d8d"/><path d="M18 46V18l14 16 14-16v28" stroke="#fff" stroke-width="7" fill="none" '
             b'stroke-linecap="round" stroke-linejoin="round"/></svg>')
-_preview_lock = threading.Lock()
+
+
+def out_dir() -> Path:
+    d = util.default_out_dir()
+    d.mkdir(parents=True, exist_ok=True)
+    return d
 
 
 def _truthy(value: Optional[str], default: bool = False) -> bool:
@@ -69,8 +74,48 @@ def _save_upload(item: Optional[Tuple[str, bytes]], folder: Path) -> Optional[Pa
     return target
 
 
-def voices_payload() -> dict:
+def _output_file(name: str) -> Optional[Path]:
+    """Resolve a file name from the API back to a file inside the output folder (no traversal)."""
+    base = out_dir()
+    if name.startswith("previews/"):
+        target = base / "previews" / Path(name[len("previews/"):]).name
+    else:
+        target = base / Path(name).name
+    return target if target.is_file() else None
+
+
+def status_payload() -> dict:
     return {
+        "version": __version__,
+        "ffmpeg": bool(util.ffmpeg()),
+        "mac": util.is_mac(),
+        "app": util.app_mode(),
+        "output_dir": str(out_dir()),
+        "default_font": util.DEFAULT_FONT,
+        "default_voice": DEFAULT_VOICE,
+        "styles": [{"name": s.name, "label": s.label, "description": s.description, "voice": s.voice,
+                    "openai_voice": s.openai_voice} for s in STYLES.values()],
+        "engines": [{"name": n, "label": l} for n, l in ENGINE_LABELS.items()],
+        "keys": {"openai": bool(api_key("openai")), "elevenlabs": bool(api_key("elevenlabs"))},
+    }
+
+
+def settings_payload() -> dict:
+    return {"openai": bool(api_key("openai")), "elevenlabs": bool(api_key("elevenlabs")), "path": str(settings_path())}
+
+
+def voices_payload(engine: str = "edge") -> dict:
+    if engine == "openai":
+        return {"engine": engine, "default": "coral", "all": [], "aliases": [
+            {"name": v["name"], "display": v["name"].capitalize(), "gender": v["gender"], "locale": "",
+             "language": "OpenAI voices", "note": v["note"]} for v in OPENAI_VOICES]}
+    if engine == "elevenlabs":
+        voices = elevenlabs_voices()
+        return {"engine": engine, "default": voices[0]["id"] if voices else "", "all": [], "aliases": [
+            {"name": v["id"], "display": v["name"], "gender": v["gender"] or "?", "locale": "",
+             "language": "ElevenLabs · " + (v["category"] or "voices"), "note": v["note"]} for v in voices]}
+    return {
+        "engine": engine,
         "default": DEFAULT_VOICE,
         "aliases": [v.to_dict() for v in ALIASES.values()],
         "all": list_all_voices(),
@@ -105,18 +150,29 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self) -> None:
         url = urlparse(self.path)
         path, query = url.path, parse_qs(url.query)
+        q = lambda key, default="": query.get(key, [default])[0]
         try:
             if path in ("/", "/index.html"):
                 return self._send(200, UI_PATH.read_bytes(), "text/html; charset=utf-8")
             if path == "/favicon.ico":
                 return self._send(200, _FAVICON, "image/svg+xml")
             if path == "/api/status":
-                return self._json({"ffmpeg": bool(util.ffmpeg()), "mac": util.is_mac(),
-                                   "output_dir": str(OUT_DIR), "version": __version__})
+                return self._json(status_payload())
             if path == "/api/voices":
-                return self._json(voices_payload())
+                return self._json(voices_payload(q("engine", "edge")))
+            if path == "/api/settings":
+                return self._json(settings_payload())
             if path == "/api/preview":
-                return self._preview(query.get("voice", [DEFAULT_VOICE])[0])
+                return self._preview(q("voice", ""), q("style", "normal"), q("engine", "auto"))
+            if path == "/api/reveal":
+                target = _output_file(unquote(q("name")))
+                if not target:
+                    return self._error("File not found", 404)
+                util.reveal(target)
+                return self._json({"ok": True})
+            if path == "/api/open-output":
+                util.open_file(out_dir())
+                return self._json({"ok": True, "output_dir": str(out_dir())})
             if path.startswith("/files/"):
                 return self._file(unquote(path[len("/files/"):]))
             self._error("Not found", 404)
@@ -138,6 +194,12 @@ class Handler(BaseHTTPRequestHandler):
                 return self._speak(json.loads(body.decode("utf-8") or "{}"))
             if path == "/api/reel":
                 return self._reel(body)
+            if path == "/api/settings":
+                data = json.loads(body.decode("utf-8") or "{}")
+                updates = {k: data[k] for k in ("openai_api_key", "elevenlabs_api_key", "elevenlabs_model",
+                                                 "elevenlabs_voice", "openai_tts_model") if k in data}
+                save_settings(updates)
+                return self._json(settings_payload())
             self._error("Not found", 404)
         except (BrokenPipeError, ConnectionResetError):
             pass
@@ -153,19 +215,20 @@ class Handler(BaseHTTPRequestHandler):
             raise ValueError("Type or paste a script first.")
         words_per_line = int(data.get("words") or 3)
         caps = _truthy(str(data.get("caps", "")))
-        out = util.unique_path(OUT_DIR / f"{util.slugify(text)}-{util.timestamp()}.mp3")
+        out = util.unique_path(out_dir() / f"{util.slugify(text)}-{util.timestamp()}.mp3")
         notes: list = []
-        speech = speak(text, voice=data.get("voice") or DEFAULT_VOICE, speed=float(data.get("speed") or 1.0),
+        speech = speak(text, voice=data.get("voice") or None, speed=float(data.get("speed") or 1.0),
                        pitch=int(data.get("pitch") or 0), engine=data.get("engine") or "auto", out=out,
-                       log=notes.append)
+                       log=notes.append, style=data.get("style") or "normal")
         speech.save_sidecar()
         cues = build_cues(speech.words, words_per_line)
         srt = speech.audio.with_suffix(".srt")
         srt.write_text(to_srt(cues, caps), encoding="utf-8")
         self._json({
             "audio_url": f"/files/{speech.audio.name}", "audio_name": speech.audio.name,
-            "srt_url": f"/files/{srt.name}", "duration": speech.duration, "engine": speech.engine,
-            "voice": speech.voice, "estimated_timings": speech.estimated_timings, "notes": notes,
+            "audio_path": str(speech.audio), "srt_url": f"/files/{srt.name}", "srt_name": srt.name,
+            "duration": speech.duration, "engine": speech.engine, "voice": speech.voice, "style": speech.style,
+            "estimated_timings": speech.estimated_timings, "notes": notes,
             "cues": [{"start": c.start, "end": c.end, "text": c.text} for c in cues],
         })
 
@@ -189,7 +252,7 @@ class Handler(BaseHTTPRequestHandler):
             speech = None
             reuse = fields.get("audio_name", "")
             if reuse:
-                sidecar = (OUT_DIR / Path(reuse).name).with_suffix(".words.json")
+                sidecar = (out_dir() / Path(reuse).name).with_suffix(".words.json")
                 if sidecar.is_file():
                     try:
                         speech = Speech.from_dict(json.loads(sidecar.read_text()))
@@ -198,14 +261,15 @@ class Handler(BaseHTTPRequestHandler):
                     if speech is not None and not speech.audio.is_file():
                         speech = None
             if speech is None:
-                out = util.unique_path(OUT_DIR / f"{util.slugify(text)}-{util.timestamp()}.mp3")
-                speech = speak(text, voice=fields.get("voice") or DEFAULT_VOICE,
+                out = util.unique_path(out_dir() / f"{util.slugify(text)}-{util.timestamp()}.mp3")
+                speech = speak(text, voice=fields.get("voice") or None,
                                speed=float(fields.get("speed") or 1.0), pitch=int(fields.get("pitch") or 0),
-                               engine=fields.get("engine") or "auto", out=out, log=notes.append)
+                               engine=fields.get("engine") or "auto", out=out, log=notes.append,
+                               style=fields.get("style") or "normal")
                 speech.save_sidecar()
 
             style = CaptionStyle(
-                font=fields.get("font") or "Arial", size=int(fields.get("font_size") or 72),
+                font=fields.get("font") or util.DEFAULT_FONT, size=int(fields.get("font_size") or 72),
                 color=fields.get("color") or "white", highlight=fields.get("highlight") or "yellow",
                 position=fields.get("position") or "bottom", caps=_truthy(fields.get("caps")),
                 words_per_line=int(fields.get("words") or 3),
@@ -227,26 +291,30 @@ class Handler(BaseHTTPRequestHandler):
         self._json({
             "video_url": f"/files/{final.name}", "video_name": final.name, "video_path": str(final),
             "audio_url": f"/files/{speech.audio.name}", "audio_name": speech.audio.name,
-            "srt_url": f"/files/{srt.name}", "duration": speech.duration, "engine": speech.engine,
-            "voice": speech.voice, "notes": notes,
+            "srt_url": f"/files/{srt.name}", "srt_name": srt.name, "duration": speech.duration,
+            "engine": speech.engine, "voice": speech.voice, "style": speech.style, "notes": notes,
         })
 
-    def _preview(self, voice: str) -> None:
-        info = resolve_voice(voice)
-        folder = OUT_DIR / "previews"
+    def _preview(self, voice: str, style_name: str, engine: str) -> None:
+        preset = resolve_style(style_name)
+        if engine in ("openai", "elevenlabs"):
+            label = voice or (preset.openai_voice if engine == "openai" else "default")
+        else:
+            engine = "auto"
+            label = voice = resolve_voice(voice or preset.voice or None).edge
+        folder = out_dir() / "previews"
         folder.mkdir(parents=True, exist_ok=True)
-        target = folder / f"{info.edge}.mp3"
+        safe = re.sub(r"[^A-Za-z0-9_.-]+", "_", f"{engine}-{label}-{preset.name}")
+        target = folder / f"{safe}.mp3"
         with _preview_lock:
             if not target.is_file():
-                speak(PREVIEW_TEXT, voice=info.edge, out=target, log=lambda m: None)
-        self._json({"url": f"/files/previews/{target.name}", "voice": info.edge})
+                speak(preset.sample, voice=voice or None, engine=engine, out=target, log=lambda m: None,
+                      style=preset.name)
+        self._json({"url": f"/files/previews/{target.name}", "voice": label, "style": preset.name, "engine": engine})
 
     def _file(self, name: str) -> None:
-        if name.startswith("previews/"):
-            target = OUT_DIR / "previews" / Path(name[len("previews/"):]).name
-        else:
-            target = OUT_DIR / Path(name).name
-        if not target.is_file():
+        target = _output_file(name)
+        if not target:
             return self._error("Not found", 404)
         size = target.stat().st_size
         ctype = mimetypes.guess_type(str(target))[0] or "application/octet-stream"
@@ -291,26 +359,36 @@ class Handler(BaseHTTPRequestHandler):
                 remaining -= len(chunk)
 
 
+def start_server(port: int = 8765, host: str = "127.0.0.1") -> ThreadingHTTPServer:
+    """Bind the backend (port 0 = any free port) and serve it on a background thread."""
+    out_dir()
+    httpd = ThreadingHTTPServer((host, port), Handler)
+    httpd.daemon_threads = True
+    thread = threading.Thread(target=httpd.serve_forever, name="reelvoice-http", daemon=True)
+    thread.start()
+    return httpd
+
+
 def serve(port: int = 8765, open_browser: Optional[bool] = None) -> int:
-    OUT_DIR.mkdir(parents=True, exist_ok=True)
+    """`reelvoice --ui`: run the backend in the foreground and open the page in the default browser."""
     try:
-        httpd = ThreadingHTTPServer(("127.0.0.1", port), Handler)
+        httpd = start_server(port)
     except OSError as exc:
         util.log(f"Could not start on port {port} ({exc}). Try another port:  reelvoice --ui {port + 1}")
         return 1
-    httpd.daemon_threads = True
-    url = f"http://127.0.0.1:{port}"
+    url = f"http://127.0.0.1:{httpd.server_address[1]}"
     print(f"Reelvoice is running at {url}")
-    print(f"Files are saved in {OUT_DIR}")
+    print(f"Files are saved in {out_dir()}")
     print("Press Ctrl+C to stop.")
     if open_browser is None:
         open_browser = not os.environ.get("REELVOICE_NO_BROWSER")
     if open_browser:
         threading.Timer(0.5, lambda: webbrowser.open(url)).start()
     try:
-        httpd.serve_forever()
+        threading.Event().wait()
     except KeyboardInterrupt:
         print("\nStopped.")
     finally:
+        httpd.shutdown()
         httpd.server_close()
     return 0

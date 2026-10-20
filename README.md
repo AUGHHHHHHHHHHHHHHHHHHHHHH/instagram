@@ -1,15 +1,28 @@
 # Reelvoice
 
-Easy AI text-to-speech for Instagram videos. Type a script, pick a voice, and get a clean
-voiceover (MP3) with auto-captions, or a finished 9:16 reel with the captions burned in.
+Easy AI text-to-speech for Instagram videos. Type a script, pick a voice and a style, and get a
+clean voiceover (MP3) with auto-captions, or a finished 9:16 reel with the captions burned in.
 
 - **AI voices** from Microsoft Edge (free, no account, 300+ voices in 70+ languages)
 - **Fallbacks** that just work: Google Translate voice, or your Mac's own offline voice
 - **Auto-captions** timed per word, with the spoken word highlighted (CapCut style)
 - **One-shot reels**: photo or video background + voice + captions + music → `reel.mp4`
-- **Two ways to use it**: a simple web app in your browser, or one-line commands
+- **Voice styles**: normal, soft & soothing (mommy-ASMR), whisper, calm, energetic, deep
+- **A real Mac app**, or one-line commands, or a web page
 
-## Quick start (Mac)
+## The Mac app (easiest)
+
+1. Download the latest **Reelvoice-…-macOS-arm64.dmg** from the
+   [Releases page](https://github.com/AUGHHHHHHHHHHHHHHHHHHHHHH/instagram/releases).
+2. Open it and drag **Reelvoice** into **Applications**.
+3. First launch only: macOS says it can't verify the app (it isn't signed with an Apple developer
+   certificate). Open **System Settings → Privacy & Security**, scroll down, click **Open Anyway**,
+   then open Reelvoice again. Or in Terminal: `xattr -cr /Applications/Reelvoice.app`
+
+Everything is inside the app, including ffmpeg. Files are saved to **Movies → Reelvoice**.
+The app is built for Apple Silicon (M1 and newer). On an Intel Mac, use the command line below.
+
+## Quick start from source (Mac)
 
 ```bash
 git clone https://github.com/AUGHHHHHHHHHHHHHHHHHHHHHH/instagram.git
@@ -38,6 +51,8 @@ That writes `output/three-tips-to-grow-faster-<time>.mp3` plus a matching `.srt`
 
 ```bash
 ./reelvoice script.txt -v andrew --speed 1.1          # read a text file, male voice, a bit faster
+./reelvoice "Hey sweetheart, you did so well today." --style asmr   # soft, breathy mommy-ASMR delivery
+./reelvoice "Shh. It's okay." --style whisper          # full whisper
 ./reelvoice script.txt --video broll.mp4 -o reel.mp4  # full reel: voice + animated captions over your clip
 ./reelvoice script.txt --image photo.jpg --music beat.mp3 --caps --highlight lime
 ./reelvoice "text" --bg "#101010"                     # reel on a solid background (no media needed)
@@ -67,11 +82,27 @@ That writes `output/three-tips-to-grow-faster-<time>.mp3` plus a matching `.srt`
 
 Any full voice name from `--all-voices` also works, e.g. `-v en-GB-SoniaNeural`.
 
+### Styles
+
+| Style | What it does |
+|---|---|
+| `normal` | natural delivery (default) |
+| `asmr` | mommy-ASMR: slow, soft-spoken, breathy, warm, close to the mic, slow ear-to-ear drift. Suggested voice `jenny` |
+| `whisper` | a full whisper, close to the mic |
+| `calm` | relaxed storyteller pace |
+| `energetic` | faster and brighter, for hooks |
+| `deep` | lower and slower, trailer feel. Suggested voice `christopher` |
+
+`--styles` lists them. A style adjusts speed and pitch and runs the audio through an ffmpeg
+filter chain (the whisper is made by keeping the voice's spectrum and randomizing its phase),
+so styles need ffmpeg. Without it you still get the plain voice.
+
 ### Options that matter
 
 | Option | What it does |
 |---|---|
 | `-v NAME` | voice (see above) |
+| `--style NAME` | delivery style (see above) |
 | `-s 1.1` | speed, 0.5 to 2.0 |
 | `-o FILE` | where to save (`.mp3`, `.wav`, `.m4a`, or `.mp4` for a reel) |
 | `--video FILE` | background video, looped or trimmed to fit the voice |
@@ -124,8 +155,16 @@ Reels upload straight to Instagram. Keep them under 90 seconds.
 ## Development
 
 ```bash
-python3 -m venv .venv && .venv/bin/pip install -e .
+python3 -m venv .venv && .venv/bin/pip install -e ".[app]"
 .venv/bin/python -m reelvoice --help
+.venv/bin/python -m reelvoice.app        # the desktop window (needs pywebview)
 ```
+
+### Building the Mac app
+
+`packaging/build-mac.sh` builds `dist/Reelvoice.app`, a `.dmg` and a `.zip` with PyInstaller, bundling a
+static ffmpeg. GitHub Actions runs it on every `v*` tag (`.github/workflows/build-mac-app.yml`) and
+attaches the files to a release. To cut a release: bump `__version__` in `src/reelvoice/__init__.py`,
+commit, then `git tag v0.3.0 && git push origin v0.3.0`.
 
 The code is small: `src/reelvoice/`: `engines.py` (voices), `captions.py` (SRT/ASS), `video.py` (ffmpeg), `cli.py`, `server.py` + `ui.html`.

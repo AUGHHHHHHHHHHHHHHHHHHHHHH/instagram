@@ -14,6 +14,21 @@ from . import util
 
 DEFAULT_VOICE = "ava"
 
+# OpenAI text-to-speech voices (gpt-4o-mini-tts). Tone comes from the style's instructions.
+OPENAI_VOICES = [
+    {"name": "shimmer", "gender": "F", "note": "Soft and breathy. Best for the ASMR and whisper styles"},
+    {"name": "coral", "gender": "F", "note": "Warm, friendly"},
+    {"name": "nova", "gender": "F", "note": "Bright, upbeat"},
+    {"name": "sage", "gender": "F", "note": "Calm, measured"},
+    {"name": "alloy", "gender": "N", "note": "Neutral"},
+    {"name": "fable", "gender": "N", "note": "Storyteller"},
+    {"name": "verse", "gender": "M", "note": "Expressive"},
+    {"name": "ballad", "gender": "M", "note": "Dramatic"},
+    {"name": "ash", "gender": "M", "note": "Clear, confident"},
+    {"name": "echo", "gender": "M", "note": "Smooth"},
+    {"name": "onyx", "gender": "M", "note": "Deep"},
+]
+
 
 @dataclass(frozen=True)
 class VoiceInfo:

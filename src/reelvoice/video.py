@@ -98,13 +98,17 @@ def render_reel(
         if ass_text:
             ass_path = tmpdir / "captions.ass"
             ass_path.write_text(ass_text, encoding="utf-8")
-            v += f"ass={_escape_filter_path(ass_path)},"
+            v += f"ass=filename={_escape_filter_path(ass_path)}"
+            fonts = util.fonts_dir()
+            if fonts:
+                v += f":fontsdir={_escape_filter_path(fonts)}"
+            v += ","
         v += "format=yuv420p[v]"
 
         # --- audio chain
         a = "[1:a]"
         if normalize:
-            a += "loudnorm=I=-16:TP=-1.5:LRA=11,"
+            a += f"loudnorm=I={speech.loudness:.0f}:TP=-1.5:LRA=11,"
         a += f"aresample=44100,adelay={int(lead * 1000)}:all=1,apad=pad_dur={tail:.2f}"
         if music:
             fade_start = max(0.0, total - 1.5)

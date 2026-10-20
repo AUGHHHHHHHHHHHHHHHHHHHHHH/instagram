@@ -1,0 +1,4 @@
+Liberation Sans (Regular, Bold) by Red Hat / Ascender Corporation.
+Licensed under the SIL Open Font License, Version 1.1.
+https://github.com/liberationfonts/liberation-fonts
+Bundled with Reelvoice so burned-in captions render the same on every machine.

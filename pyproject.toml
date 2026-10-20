@@ -13,6 +13,9 @@ dependencies = [
     "gTTS>=2.5",
 ]
 
+[project.optional-dependencies]
+app = ["pywebview>=5.0"]
+
 [project.scripts]
 reelvoice = "reelvoice.cli:main"
 
@@ -21,4 +24,4 @@ package-dir = {"" = "src"}
 packages = ["reelvoice"]
 
 [tool.setuptools.package-data]
-reelvoice = ["ui.html"]
+reelvoice = ["ui.html", "fonts/*.ttf", "fonts/*.txt"]
